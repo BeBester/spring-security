@@ -127,10 +127,12 @@ public class ConcurrentSessionFilter extends GenericFilterBean {
 		HttpSession session = request.getSession(false);
 
 		if (session != null) {
+			//根据SessionId获取对应的Session信息
 			SessionInformation info = sessionRegistry.getSessionInformation(session
 					.getId());
 
 			if (info != null) {
+				//如果Session已过期则执行注销操作
 				if (info.isExpired()) {
 					// Expired - abort processing
 					if (logger.isDebugEnabled()) {

@@ -175,16 +175,21 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 				result = provider.authenticate(authentication);
 
 				if (result != null) {
+					//copy details ip/session id
+					//部分Provider已操作 应该是防止用户自定义的Provide没有此操作
 					copyDetails(authentication, result);
 					break;
 				}
 			}
 			catch (AccountStatusException | InternalAuthenticationServiceException e) {
+				//发布认证失败信息 默认是NullEventPublisher 即不发布
 				prepareException(e, authentication);
 				// SEC-546: Avoid polling additional providers if auth failure is due to
 				// invalid account status
+				//账户状态异常则直接抛出异常
 				throw e;
 			} catch (AuthenticationException e) {
+				//认证异常则记录异常信息
 				lastException = e;
 			}
 		}
@@ -192,6 +197,7 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 		if (result == null && parent != null) {
 			// Allow the parent to try.
 			try {
+				//如果当前ProvideManager认证失败 则执行父级操作
 				result = parentResult = parent.authenticate(authentication);
 			}
 			catch (ProviderNotFoundException e) {
@@ -210,12 +216,14 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 					&& (result instanceof CredentialsContainer)) {
 				// Authentication is complete. Remove credentials and other secret data
 				// from authentication
+				// 认证成功擦除凭证(密钥)及敏感信息
 				((CredentialsContainer) result).eraseCredentials();
 			}
 
 			// If the parent AuthenticationManager was attempted and successful then it will publish an AuthenticationSuccessEvent
 			// This check prevents a duplicate AuthenticationSuccessEvent if the parent AuthenticationManager already published it
 			if (parentResult == null) {
+				//如果当前用户认证成功(不需要父级认证) 则发布认证信息给父级
 				eventPublisher.publishAuthenticationSuccess(result);
 			}
 			return result;
@@ -224,6 +232,7 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 		// Parent was null, or didn't authenticate (or throw an exception).
 
 		if (lastException == null) {
+			//父类认证返回null 或未完成认证 创建异常并记录
 			lastException = new ProviderNotFoundException(messages.getMessage(
 					"ProviderManager.providerNotFound",
 					new Object[] { toTest.getName() },
@@ -236,6 +245,7 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 			prepareException(lastException, authentication);
 		}
 
+		//认证失败抛出异常
 		throw lastException;
 	}
 

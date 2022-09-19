@@ -56,6 +56,8 @@ import org.springframework.web.filter.GenericFilterBean;
  * @author Luke Taylor
  * @since 3.0
  */
+//创建SecurityContext并设置到SecurityContextHolder
+//在所有过滤器执行结束即认证结束后确认生成的信息收否有效 如果有效则保存到Session中(默认，可配置SecurityContextRepository)
 public class SecurityContextPersistenceFilter extends GenericFilterBean {
 
 	static final String FILTER_APPLIED = "__spring_security_scpf_applied";
@@ -97,20 +99,28 @@ public class SecurityContextPersistenceFilter extends GenericFilterBean {
 
 		HttpRequestResponseHolder holder = new HttpRequestResponseHolder(request,
 				response);
+		//从request Session中获取SecurityContext 如果Session中没有则创建一个新的SecurityContextImpl
+		//并放入SaveToSessionResponseWrapper中
 		SecurityContext contextBeforeChainExecution = repo.loadContext(holder);
 
 		try {
+			//默认放入ThreadLocalSecurityContextHolder中
+			//！！！注意只是放在了线程(请求)级别的Holder中并未放入Session
 			SecurityContextHolder.setContext(contextBeforeChainExecution);
 
 			chain.doFilter(holder.getRequest(), holder.getResponse());
 
 		}
 		finally {
+			//获取后续所有Filter执行完成后的SecurityContext
 			SecurityContext contextAfterChainExecution = SecurityContextHolder
 					.getContext();
 			// Crucial removal of SecurityContextHolder contents - do this before anything
 			// else.
+			//删除 SecurityContextHolder (线程)持有的上下文
 			SecurityContextHolder.clearContext();
+			//默认保存执行完成后的Context到Session中
+			//如果context为空则不保存
 			repo.saveContext(contextAfterChainExecution, holder.getRequest(),
 					holder.getResponse());
 			request.removeAttribute(FILTER_APPLIED);

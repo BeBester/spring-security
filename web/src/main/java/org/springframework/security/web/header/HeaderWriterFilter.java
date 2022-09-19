@@ -41,6 +41,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * @author Ankur Pathak
  * @since 3.2
  */
+//继承OncePerRequestFilter 即确保每个请求当前过滤器只会执行一次
 public class HeaderWriterFilter extends OncePerRequestFilter {
 
 
@@ -71,6 +72,7 @@ public class HeaderWriterFilter extends OncePerRequestFilter {
 			HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
 
+		//是否先添加Header再执行其他过滤器
 		if (this.shouldWriteHeadersEagerly) {
 			doHeadersBefore(request, response, filterChain);
 		} else {
@@ -96,6 +98,7 @@ public class HeaderWriterFilter extends OncePerRequestFilter {
 	}
 
 	void writeHeaders(HttpServletRequest request, HttpServletResponse response) {
+		//根据配置的Wirter向response添加header
 		for (HeaderWriter writer : this.headerWriters) {
 			writer.writeHeaders(request, response);
 		}

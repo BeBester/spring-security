@@ -37,7 +37,11 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.SpringSecurityMessageSource;
 import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 import org.springframework.security.core.authority.mapping.NullAuthoritiesMapper;
-import org.springframework.security.core.userdetails.*;
+import org.springframework.security.core.userdetails.AuthenticationUserDetailsService;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsByNameServiceWrapper;
+import org.springframework.security.core.userdetails.UserDetailsChecker;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.util.Assert;
 
 /**
@@ -94,21 +98,26 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 			return null;
 		}
 
+		//CasAuthenticationFilter创建的authentication为UsernamePasswordAuthenticationToken
+
+		//如果是UsernamePasswordAuthenticationToken且用户名非cas指定则返回null表示当前Provider不支持
+		//ProviderManager(循环)会交给下一个Provider处理
 		if (authentication instanceof UsernamePasswordAuthenticationToken
 				&& (!CasAuthenticationFilter.CAS_STATEFUL_IDENTIFIER
-						.equals(authentication.getPrincipal().toString()) && !CasAuthenticationFilter.CAS_STATELESS_IDENTIFIER
-						.equals(authentication.getPrincipal().toString()))) {
+				.equals(authentication.getPrincipal().toString())
+				&& !CasAuthenticationFilter.CAS_STATELESS_IDENTIFIER
+				.equals(authentication.getPrincipal().toString()))) {
 			// UsernamePasswordAuthenticationToken not CAS related
 			return null;
 		}
 
 		// If an existing CasAuthenticationToken, just check we created it
+		//如果是CasAuthenticationToken 且是key hash值相同 则认为认证成功
 		if (authentication instanceof CasAuthenticationToken) {
 			if (this.key.hashCode() == ((CasAuthenticationToken) authentication)
 					.getKeyHash()) {
 				return authentication;
-			}
-			else {
+			} else {
 				throw new BadCredentialsException(
 						messages.getMessage("CasAuthenticationProvider.incorrectKey",
 								"The presented CasAuthenticationToken does not contain the expected key"));
@@ -116,6 +125,8 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 		}
 
 		// Ensure credentials are presented
+		// 如果请求不携带ticket 认为认证失败抛出异常 被ExceptionTranslationFilter捕获
+		// 跳转到EntryPoint进行处理(可重定向到前端登陆页面让用户登陆/重定向到cas 服务端认证链接)
 		if ((authentication.getCredentials() == null)
 				|| "".equals(authentication.getCredentials())) {
 			throw new BadCredentialsException(messages.getMessage(
@@ -125,9 +136,10 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 
 		boolean stateless = false;
 
+		//判断是否为无状态客户端
 		if (authentication instanceof UsernamePasswordAuthenticationToken
 				&& CasAuthenticationFilter.CAS_STATELESS_IDENTIFIER.equals(authentication
-						.getPrincipal())) {
+				.getPrincipal())) {
 			stateless = true;
 		}
 
@@ -135,17 +147,22 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 
 		if (stateless) {
 			// Try to obtain from cache
+			// 如果是无状态客户端则从缓存中根据ticket获取Token
 			result = statelessTicketCache.getByTicketId(authentication.getCredentials()
 					.toString());
 		}
 
 		if (result == null) {
+			//如果缓存中没有(无状态客户端)或是有状态客户端访问
+			//授权信息为null则重新走cas服务器认证
 			result = this.authenticateNow(authentication);
+			//copy将http 请求信息 默认为ip和sessionId
 			result.setDetails(authentication.getDetails());
 		}
 
 		if (stateless) {
 			// Add to cache
+			// 如果是无状态的客户端 则将新授权CasAuthenticationToken放入缓存
 			statelessTicketCache.putTicketInCache(result);
 		}
 
@@ -155,16 +172,20 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 	private CasAuthenticationToken authenticateNow(final Authentication authentication)
 			throws AuthenticationException {
 		try {
+			//发送http请求到cas服务认证并解析返回的xml为Assertion对象
 			final Assertion assertion = this.ticketValidator.validate(authentication
 					.getCredentials().toString(), getServiceUrl(authentication));
+			//根据从cas拿到的Assertion加载用户详细信息
+			//如当前服务的授权信息等
 			final UserDetails userDetails = loadUserByAssertion(assertion);
+			//判断用户状态 是否过期等
 			userDetailsChecker.check(userDetails);
+			//返回CAS认证后的Token
 			return new CasAuthenticationToken(this.key, userDetails,
 					authentication.getCredentials(),
 					authoritiesMapper.mapAuthorities(userDetails.getAuthorities()),
 					userDetails, assertion);
-		}
-		catch (final TicketValidationException e) {
+		} catch (final TicketValidationException e) {
 			throw new BadCredentialsException(e.getMessage(), e);
 		}
 	}
@@ -183,16 +204,13 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 		if (authentication.getDetails() instanceof ServiceAuthenticationDetails) {
 			serviceUrl = ((ServiceAuthenticationDetails) authentication.getDetails())
 					.getServiceUrl();
-		}
-		else if (serviceProperties == null) {
+		} else if (serviceProperties == null) {
 			throw new IllegalStateException(
 					"serviceProperties cannot be null unless Authentication.getDetails() implements ServiceAuthenticationDetails.");
-		}
-		else if (serviceProperties.getService() == null) {
+		} else if (serviceProperties.getService() == null) {
 			throw new IllegalStateException(
 					"serviceProperties.getService() cannot be null unless Authentication.getDetails() implements ServiceAuthenticationDetails.");
-		}
-		else {
+		} else {
 			serviceUrl = serviceProperties.getService();
 		}
 		if (logger.isDebugEnabled()) {
@@ -270,6 +288,6 @@ public class CasAuthenticationProvider implements AuthenticationProvider,
 				.isAssignableFrom(authentication))
 				|| (CasAuthenticationToken.class.isAssignableFrom(authentication))
 				|| (CasAssertionAuthenticationToken.class
-						.isAssignableFrom(authentication));
+				.isAssignableFrom(authentication));
 	}
 }

@@ -216,9 +216,11 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 	protected final void successfulAuthentication(HttpServletRequest request,
 			HttpServletResponse response, FilterChain chain, Authentication authResult)
 			throws IOException, ServletException {
+		//如果是需要认证的路径则直接返回false
 		boolean continueFilterChain = proxyTicketRequest(
 				serviceTicketRequest(request, response), request);
 		if (!continueFilterChain) {
+			//不需要执行其他过滤器 直接保存认证信息执行rememberMe及调用successHandler
 			super.successfulAuthentication(request, response, chain, authResult);
 			return;
 		}
@@ -228,6 +230,7 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 					+ authResult);
 		}
 
+		//保存登录信息并继续其他过滤器操作
 		SecurityContextHolder.getContext().setAuthentication(authResult);
 
 		// Fire event
@@ -245,6 +248,7 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 			IOException {
 		// if the request is a proxy request process it and return null to indicate the
 		// request has been processed
+		// 如果是代理请求 则直接进行处理
 		if (proxyReceptorRequest(request)) {
 			logger.debug("Responding to proxy receptor request");
 			CommonUtils.readAndRespondToProxyReceptorRequest(request, response,
@@ -252,9 +256,13 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 			return null;
 		}
 
+		//是否为指定需要走CAS认证url的请求
 		final boolean serviceTicketRequest = serviceTicketRequest(request, response);
+		//如果是指定的路径则认为是有状态的客户端访问(如web)，如果不是则认为是无状态的访问
+		//区别是用户名不一样? 无状态时将ticket(客户端持有)作为key,Token作为value保存在服务端缓存
 		final String username = serviceTicketRequest ? CAS_STATEFUL_IDENTIFIER
 				: CAS_STATELESS_IDENTIFIER;
+		//从请求参数中获取ticket值
 		String password = obtainArtifact(request);
 
 		if (password == null) {
@@ -265,8 +273,11 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 		final UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(
 				username, password);
 
+		//设置http信息 默认source是WebAuthenticationDetailsSource
+		//保留request中的remoteAddress和sessionId
 		authRequest.setDetails(authenticationDetailsSource.buildDetails(request));
 
+		//交给ProviderManager并由CasAuthenticationProvider执行认证
 		return this.getAuthenticationManager().authenticate(authRequest);
 	}
 
@@ -285,6 +296,9 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 	protected boolean requiresAuthentication(final HttpServletRequest request,
 			final HttpServletResponse response) {
 		final boolean serviceTicketRequest = serviceTicketRequest(request, response);
+		//1.是指定需要认证的url
+		//2.配置了代理参数且是指定的url
+		//3.非指定需要cas认证的url，且authenticateAllArtifacts配置为true且ticket参数不为空且未登录
 		final boolean result = serviceTicketRequest || proxyReceptorRequest(request)
 				|| (proxyTicketRequest(serviceTicketRequest, request));
 		if (logger.isDebugEnabled()) {
@@ -354,6 +368,7 @@ public class CasAuthenticationFilter extends AbstractAuthenticationProcessingFil
 		if (serviceTicketRequest) {
 			return false;
 		}
+		//authenticateAllArtifacts认证所有 ServiceProperties指定
 		final boolean result = authenticateAllArtifacts
 				&& obtainArtifact(request) != null && !authenticated();
 		if (logger.isDebugEnabled()) {

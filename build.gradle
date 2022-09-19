@@ -31,6 +31,8 @@ ext.milestoneBuild = !(snapshotBuild || releaseBuild)
 dependencyManagementExport.projects = subprojects.findAll { !it.name.contains('-boot') }
 
 repositories {
+	mavenLocal()
+	maven { url 'https://maven.aliyun.com/repository/central' }
 	mavenCentral()
 }
 

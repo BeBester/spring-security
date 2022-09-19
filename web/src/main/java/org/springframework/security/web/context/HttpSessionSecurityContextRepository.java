@@ -110,6 +110,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		HttpServletResponse response = requestResponseHolder.getResponse();
 		HttpSession httpSession = request.getSession(false);
 
+		//从Session中查询key SPRING_SECURITY_CONTEXT_KEY获取Context
 		SecurityContext context = readSecurityContextFromSession(httpSession);
 
 		if (context == null) {
@@ -117,6 +118,8 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 				logger.debug("No SecurityContext was available from the HttpSession: "
 						+ httpSession + ". " + "A new one will be created.");
 			}
+			//如果Session中Context为null 则创建一个Context 默认由ThreadLocalSecurityContextHolderStrategy创建
+			//创建SecurityContextImpl(持有Authentication)并放置到线程变量中(注意是线程变量不是Session)中
 			context = generateNewContext();
 
 		}
@@ -142,6 +145,9 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 							+ response
 							+ ". You must use the HttpRequestResponseHolder.response after invoking loadContext");
 		}
+		//SaveContextOnUpdateOrErrorResponseWrapper
+
+		//SaveToSessionResponseWrapper默认的实现类封装了saveContext即往Session中放置Context的逻辑
 		responseWrapper.saveContext(context);
 	}
 
@@ -156,7 +162,6 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 	}
 
 	/**
-	 *
 	 * @param httpSession the session obtained from the request.
 	 */
 	private SecurityContext readSecurityContextFromSession(HttpSession httpSession) {
@@ -238,7 +243,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 	 * Allows the use of session identifiers in URLs to be disabled. Off by default.
 	 *
 	 * @param disableUrlRewriting set to <tt>true</tt> to disable URL encoding methods in
-	 * the response wrapper and prevent the use of <tt>jsessionid</tt> parameters.
+	 *                            the response wrapper and prevent the use of <tt>jsessionid</tt> parameters.
 	 */
 	public void setDisableUrlRewriting(boolean disableUrlRewriting) {
 		this.disableUrlRewriting = disableUrlRewriting;
@@ -248,7 +253,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 	 * Allows the session attribute name to be customized for this repository instance.
 	 *
 	 * @param springSecurityContextKey the key under which the security context will be
-	 * stored. Defaults to {@link #SPRING_SECURITY_CONTEXT_KEY}.
+	 *                                 stored. Defaults to {@link #SPRING_SECURITY_CONTEXT_KEY}.
 	 */
 	public void setSpringSecurityContextKey(String springSecurityContextKey) {
 		Assert.hasText(springSecurityContextKey,
@@ -305,13 +310,13 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		 * Takes the parameters required to call <code>saveContext()</code> successfully
 		 * in addition to the request and the response object we are wrapping.
 		 *
-		 * @param request the request object (used to obtain the session, if one exists).
+		 * @param request                            the request object (used to obtain the session, if one exists).
 		 * @param httpSessionExistedAtStartOfRequest indicates whether there was a session
-		 * in place before the filter chain executed. If this is true, and the session is
-		 * found to be null, this indicates that it was invalidated during the request and
-		 * a new session will now be created.
-		 * @param context the context before the filter chain executed. The context will
-		 * only be stored if it or its contents changed during the request.
+		 *                                           in place before the filter chain executed. If this is true, and the session is
+		 *                                           found to be null, this indicates that it was invalidated during the request and
+		 *                                           a new session will now be created.
+		 * @param context                            the context before the filter chain executed. The context will
+		 *                                           only be stored if it or its contents changed during the request.
 		 */
 		SaveToSessionResponseWrapper(HttpServletResponse response,
 				HttpServletRequest request, boolean httpSessionExistedAtStartOfRequest,
@@ -330,10 +335,9 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		 * context will not be stored.
 		 *
 		 * @param context the context object obtained from the SecurityContextHolder after
-		 * the request has been processed by the filter chain.
-		 * SecurityContextHolder.getContext() cannot be used to obtain the context as it
-		 * has already been cleared by the time this method is called.
-		 *
+		 *                the request has been processed by the filter chain.
+		 *                SecurityContextHolder.getContext() cannot be used to obtain the context as it
+		 *                has already been cleared by the time this method is called.
 		 */
 		@Override
 		protected void saveContext(SecurityContext context) {
@@ -341,11 +345,14 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			HttpSession httpSession = request.getSession(false);
 
 			// See SEC-776
+			//如果Authentication为空或者时匿名访问者(根据Authentication实际类型是不是AnonymousAuthenticationToken判断)
 			if (authentication == null || trustResolver.isAnonymous(authentication)) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("SecurityContext is empty or contents are anonymous - context will not be stored in HttpSession.");
 				}
 
+				//如果授权信息为空或匿名访问 但Session不为null且过滤器链执行前持有的Authentication不为空
+				//说明之前的Authentication失效 进行清除
 				if (httpSession != null && authBeforeExecution != null) {
 					// SEC-1587 A non-anonymous context may still be in the session
 					// SEC-1735 remove if the contextBeforeExecution was not anonymous
@@ -356,6 +363,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			}
 
 			if (httpSession == null) {
+				//根据配置是否创建新的Session
 				httpSession = createNewSessionIfAllowed(context);
 			}
 
@@ -364,8 +372,12 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			if (httpSession != null) {
 				// We may have a new session, so check also whether the context attribute
 				// is set SEC-1561
+				//如果Session不为空,且满足一下条件之一 则将Contex设置到当前Session中
+				//1.Session中已有授权信息,且在其他过滤器中被更新过
+				//2.Session中未持有Context
 				if (contextChanged(context)
 						|| httpSession.getAttribute(springSecurityContextKey) == null) {
+					//保存持有授权信息的context到Session中
 					httpSession.setAttribute(springSecurityContextKey, context);
 					this.isSaveContextInvoked = true;
 					if (logger.isDebugEnabled()) {
@@ -424,8 +436,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 
 			try {
 				return request.getSession(true);
-			}
-			catch (IllegalStateException e) {
+			} catch (IllegalStateException e) {
 				// Response must already be committed, therefore can't create a new
 				// session
 				logger.warn("Failed to create a session, as response has been committed. Unable to store"
@@ -445,7 +456,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 	 * {@link AuthenticationTrustResolverImpl}.
 	 *
 	 * @param trustResolver the {@link AuthenticationTrustResolver} to use. Cannot be
-	 * null.
+	 *                      null.
 	 */
 	public void setTrustResolver(AuthenticationTrustResolver trustResolver) {
 		Assert.notNull(trustResolver, "trustResolver cannot be null");

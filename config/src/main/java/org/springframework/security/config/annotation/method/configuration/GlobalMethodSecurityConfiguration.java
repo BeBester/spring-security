@@ -375,6 +375,7 @@ public class GlobalMethodSecurityConfiguration
 		}
 
 		if (isPrePostEnabled) {
+			//attributeFactory用于创建PreInvocationAttribute
 			sources.add(new PrePostAnnotationSecurityMetadataSource(attributeFactory));
 		}
 		if (isSecuredEnabled) {

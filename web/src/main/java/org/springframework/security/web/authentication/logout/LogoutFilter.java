@@ -98,6 +98,7 @@ public class LogoutFilter extends GenericFilterBean {
 		HttpServletRequest request = (HttpServletRequest) req;
 		HttpServletResponse response = (HttpServletResponse) res;
 
+		//判断请求是否满足注销
 		if (requiresLogout(request, response)) {
 			Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -106,8 +107,11 @@ public class LogoutFilter extends GenericFilterBean {
 						+ "' and transferring to logout destination");
 			}
 
+			//调用注销逻辑 默认实现为CompositeLogoutHandler 持有多个LogoutHandler
+			//在注销时调用所有LogoutHandler执行注销操作
 			this.handler.logout(request, response, auth);
 
+			//注销成功时执行的操作 默认时SimpleUrlLogoutSuccessHandler 重定向到指定地址
 			logoutSuccessHandler.onLogoutSuccess(request, response, auth);
 
 			return;

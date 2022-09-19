@@ -15,15 +15,6 @@
  */
 package org.springframework.security.web.authentication.preauth;
 
-import java.io.IOException;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
@@ -33,10 +24,21 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.WebAttributes;
-import org.springframework.security.web.authentication.*;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
 import org.springframework.web.filter.GenericFilterBean;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.io.IOException;
 
 /**
  * Base class for processing filters that handle pre-authenticated authentication
@@ -49,7 +51,7 @@ import org.springframework.web.filter.GenericFilterBean;
  * pre-authentication system can extract. It is assumed that the external system is
  * responsible for the accuracy of the data and preventing the submission of forged
  * values.
- *
+ * <p>
  * Subclasses must implement the {@code getPreAuthenticatedPrincipal()} and
  * {@code getPreAuthenticatedCredentials()} methods. Subclasses of this filter are
  * typically used in combination with a {@code PreAuthenticatedAuthenticationProvider},
@@ -77,6 +79,10 @@ import org.springframework.web.filter.GenericFilterBean;
  * @author Tadaya Tsuyukubo
  * @since 2.0
  */
+//此类将检查安全上下文的是否持有认证信息
+//如果为空，它将尝试从HTTP请求中提取用户信息并将其提交到AuthenticationManager
+//过滤器将创建一个包含返回数据的PreAuthenticatedAuthenticationToken并提交以进行身份验证。
+//“身份验证”实际上可能会加载用户权限的进一步处理，但遵循标准的Spring Security身份验证体系结构
 public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFilterBean
 		implements ApplicationEventPublisherAware {
 
@@ -97,8 +103,7 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 	public void afterPropertiesSet() {
 		try {
 			super.afterPropertiesSet();
-		}
-		catch (ServletException e) {
+		} catch (ServletException e) {
 			// convert to RuntimeException for passivity on afterPropertiesSet signature
 			throw new RuntimeException(e);
 		}
@@ -117,6 +122,7 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 					+ SecurityContextHolder.getContext().getAuthentication());
 		}
 
+		//预认证请求条件判断
 		if (requiresAuthenticationRequestMatcher.matches((HttpServletRequest) request)) {
 			doAuthenticate((HttpServletRequest) request, (HttpServletResponse) response);
 		}
@@ -164,10 +170,13 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 	private void doAuthenticate(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 		Authentication authResult;
 
+		//从其他系统获取认证的用户 获取方式由子类实现 如http请求获取
 		Object principal = getPreAuthenticatedPrincipal(request);
+		//从其他系统获取认证的凭据(密码) 获取方式由子类实现 如http请求获取
 		Object credentials = getPreAuthenticatedCredentials(request);
 
 		if (principal == null) {
+			//获取用户信息失败直接结束过滤器链
 			if (logger.isDebugEnabled()) {
 				logger.debug("No pre-authenticated principal found in request");
 			}
@@ -181,13 +190,17 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 		}
 
 		try {
+			//根据从其他系统获取的用户名和密码创建Token,并设置此token为已认证
 			PreAuthenticatedAuthenticationToken authRequest = new PreAuthenticatedAuthenticationToken(
 					principal, credentials);
+			//copy http的信息如ip地址等
 			authRequest.setDetails(authenticationDetailsSource.buildDetails(request));
+			//执行其他认证过程 如补充用户的授权信息等
 			authResult = authenticationManager.authenticate(authRequest);
+			//认证成功后调用处理器
 			successfulAuthentication(request, response, authResult);
-		}
-		catch (AuthenticationException failed) {
+		} catch (AuthenticationException failed) {
+			//认证失败后调用处理器
 			unsuccessfulAuthentication(request, response, failed);
 
 			if (!continueFilterChainOnUnsuccessfulAuthentication) {
@@ -273,7 +286,7 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 	 * authentication failure will result in an immediate exception.
 	 *
 	 * @param shouldContinue set to {@code true} to allow the request to proceed after a
-	 * failed authentication.
+	 *                       failed authentication.
 	 */
 	public void setContinueFilterChainOnUnsuccessfulAuthentication(boolean shouldContinue) {
 		continueFilterChainOnUnsuccessfulAuthentication = shouldContinue;
@@ -297,7 +310,7 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 	 * authenticate the new principal.
 	 *
 	 * @param invalidateSessionOnPrincipalChange <tt>false</tt> to retain the existing
-	 * session. Defaults to <tt>true</tt>.
+	 *                                           session. Defaults to <tt>true</tt>.
 	 */
 	public void setInvalidateSessionOnPrincipalChange(
 			boolean invalidateSessionOnPrincipalChange) {
