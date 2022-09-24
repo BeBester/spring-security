@@ -1,19 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="CheckStyle-IDEA">
-    <option name="configuration">
-      <map>
-        <entry key="active-configuration" value="PROJECT_RELATIVE:$PROJECT_DIR$/etc/checkstyle/checkstyle.xml:spring-security" />
-        <entry key="checkstyle-version" value="8.14" />
-        <entry key="copy-libs" value="false" />
-        <entry key="location-0" value="BUNDLED:(bundled):Sun Checks" />
-        <entry key="location-1" value="BUNDLED:(bundled):Google Checks" />
-        <entry key="location-2" value="PROJECT_RELATIVE:$PROJECT_DIR$/etc/checkstyle/checkstyle.xml:spring-security" />
-        <entry key="property-2.config_loc" value="$PROJECT_DIR$/etc/checkstyle" />
-        <entry key="scan-before-checkin" value="false" />
-        <entry key="scanscope" value="JavaOnlyWithTests" />
-        <entry key="suppress-errors" value="false" />
-      </map>
+  <component name="CheckStyle-IDEA" serialisationVersion="2">
+    <checkstyleVersion>8.14</checkstyleVersion>
+    <scanScope>JavaOnlyWithTests</scanScope>
+    <option name="thirdPartyClasspath" />
+    <option name="activeLocationIds">
+      <option value="b652f531-b0a0-4c49-a65c-8e0a6c509ed7" />
+    </option>
+    <option name="locations">
+      <list>
+        <ConfigurationLocation id="bundled-sun-checks" type="BUNDLED" scope="All" description="Sun Checks">(bundled)</ConfigurationLocation>
+        <ConfigurationLocation id="bundled-google-checks" type="BUNDLED" scope="All" description="Google Checks">(bundled)</ConfigurationLocation>
+        <ConfigurationLocation id="b652f531-b0a0-4c49-a65c-8e0a6c509ed7" type="PROJECT_RELATIVE" scope="All" description="spring-security">
+          $PROJECT_DIR$/etc/checkstyle/checkstyle.xml
+          <option name="properties">
+            <map>
+              <entry key="config_loc" value="$PROJECT_DIR$/etc/checkstyle" />
+            </map>
+          </option>
+        </ConfigurationLocation>
+      </list>
     </option>
   </component>
 </project>

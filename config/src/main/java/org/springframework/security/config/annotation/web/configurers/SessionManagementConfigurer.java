@@ -95,6 +95,7 @@ import org.springframework.util.CollectionUtils;
  * @see SessionManagementFilter
  * @see ConcurrentSessionFilter
  */
+//Session相关配置
 public final class SessionManagementConfigurer<H extends HttpSecurityBuilder<H>>
 		extends AbstractHttpConfigurer<SessionManagementConfigurer<H>, H> {
 	private final SessionAuthenticationStrategy DEFAULT_SESSION_FIXATION_STRATEGY = createDefaultSessionFixationProtectionStrategy();

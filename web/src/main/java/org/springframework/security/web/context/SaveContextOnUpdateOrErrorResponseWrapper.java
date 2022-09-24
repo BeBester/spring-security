@@ -39,6 +39,7 @@ import org.springframework.security.web.util.OnCommittedResponseWrapper;
  * @author Rob Winch
  * @since 3.0
  */
+//封装了Response 会在重定向操作时保存Contex到Session中
 public abstract class SaveContextOnUpdateOrErrorResponseWrapper
 		extends OnCommittedResponseWrapper {
 

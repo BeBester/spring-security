@@ -108,6 +108,7 @@ import org.springframework.web.filter.GenericFilterBean;
  * @author Ben Alex
  * @author Luke Taylor
  */
+//！！！注意SessionAuthenticationStrategy策略 一定要配置 否则认证信息不会保存到Session中
 public abstract class AbstractAuthenticationProcessingFilter extends GenericFilterBean
 		implements ApplicationEventPublisherAware, MessageSourceAware {
 	// ~ Static fields/initializers

@@ -22,6 +22,7 @@ package org.springframework.security.authentication;
  *
  * @author Ben Alex
  */
+//认证需要的请求信息，如cas需要拿到请求的service url及其参数以匹配向cas服务发起认证时的url
 public interface AuthenticationDetailsSource<C, T> {
 	// ~ Methods
 	// ========================================================================================================

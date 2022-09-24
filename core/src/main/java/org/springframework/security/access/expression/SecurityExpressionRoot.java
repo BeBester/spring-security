@@ -28,7 +28,7 @@ import org.springframework.security.core.authority.AuthorityUtils;
 
 /**
  * Base root object for use in Spring Security expression evaluations.
- *
+ * 用于解析注解内的表达式
  * @author Luke Taylor
  * @since 3.0
  */

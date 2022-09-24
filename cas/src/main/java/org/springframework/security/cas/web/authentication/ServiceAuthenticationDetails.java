@@ -31,6 +31,7 @@ import org.springframework.security.core.Authentication;
  *
  * @see ServiceAuthenticationDetailsSource
  */
+//保存用户的认证时的service参数
 public interface ServiceAuthenticationDetails extends Serializable {
 
 	/**

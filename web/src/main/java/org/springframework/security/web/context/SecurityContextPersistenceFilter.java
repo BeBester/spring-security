@@ -100,7 +100,7 @@ public class SecurityContextPersistenceFilter extends GenericFilterBean {
 		HttpRequestResponseHolder holder = new HttpRequestResponseHolder(request,
 				response);
 		//从request Session中获取SecurityContext 如果Session中没有则创建一个新的SecurityContextImpl
-		//并放入SaveToSessionResponseWrapper中
+		//!!!并放入SaveToSessionResponseWrapper中,当response发生重定向等操作时会自动保存Context到Session
 		SecurityContext contextBeforeChainExecution = repo.loadContext(holder);
 
 		try {

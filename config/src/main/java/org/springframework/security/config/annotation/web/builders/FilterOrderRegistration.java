@@ -93,6 +93,9 @@ final class FilterOrderRegistration {
 		put(X509AuthenticationFilter.class, order.next());
 		put(AbstractPreAuthenticatedProcessingFilter.class, order.next());
 		//-----------以下为执行认证操作的Filter 一般多选一
+		//response会被SaveContextOnUpdateOrErrorResponseWrapper封装 如果进行重定向等操作会调用saveContext
+		//默认保存到Session中
+		//！！！注意SessionAuthenticationStrategy策略 一定要配置 否则认证信息不会保存到Session中
 		//配置CasFilter
 		filterToOrder.put("org.springframework.security.cas.web.CasAuthenticationFilter",
 				order.next());
